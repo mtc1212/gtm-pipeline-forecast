@@ -44,6 +44,10 @@ export function SettingsView() {
             ['Hygiene score', 'Share of open opportunities that pass all data-quality rules.'],
             ['Forecast changes', 'Diff of every deal vs. the last locked weekly call: new, won, lost, pushed, pulled-in, up/downgraded, re-sized.'],
             ['Renewal health', '100 minus penalties for low utilization, no exec sponsor, escalations and detractor NPS.'],
+            ['Lead → MQL → SQL → Opportunity', 'Lead: any new contact. MQL: fits the ICP and showed intent. SQL: first meeting held. Opportunity: qualified deal in the CRM.'],
+            ['Pipeline plan', 'Next-quarter target × coverage goal − pipeline already open, converted to opps and leads with trailing 6-month rates.'],
+            ['Stage conversion', 'For closed deals: share that advanced from each stage to the next (won deals reached every stage; lost deals record the stage they were lost at).'],
+            ['Buying committee coverage', 'Key roles engaged on the account: economic buyer, champion, technical evaluator, security / IT and procurement.'],
             ['Next best action priority', 'Rule weight × deal size ($100k units) × urgency (past due 2×, ≤14 days 1.6×, this quarter 1.2×).'],
           ].map(([k, v]) => (
             <div key={k}><dt className="font-medium text-slate-900">{k}</dt><dd className="text-slate-600">{v}</dd></div>

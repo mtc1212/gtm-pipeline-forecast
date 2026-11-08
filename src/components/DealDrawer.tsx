@@ -20,7 +20,11 @@ export function DealDrawer({ dealId, onClose }: { dealId: string | null; onClose
       <aside className="flex h-full w-full max-w-lg flex-col overflow-y-auto bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <header className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white px-5 py-4">
           <div>
-            <div className="text-xs text-slate-500">{deal.id} · {deal.industry} · {deal.country}</div>
+            <div className="text-xs text-slate-500">
+              {deal.id} ·{' '}
+              <button className="text-indigo-600 hover:underline" onClick={() => { onClose(); window.location.hash = `accounts/${encodeURIComponent(deal.account)}` }}>{deal.account}</button>
+              {' '}· {deal.industry}
+            </div>
             <h2 className="mt-0.5 text-lg font-semibold text-slate-900">{deal.name}</h2>
             <div className="mt-1 flex items-center gap-2 text-sm text-slate-600">
               <StageBadge stage={deal.stage} />

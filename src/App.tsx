@@ -1,17 +1,20 @@
-import { AlertTriangle, BarChart3, ClipboardList, Columns3, Lightbulb, RefreshCcw, Repeat, Settings2, Users } from 'lucide-react'
+import { AlertTriangle, BarChart3, Building2, ClipboardList, Columns3, Lightbulb, RefreshCcw, Repeat, Settings2, TrendingUp, Trophy, Users } from 'lucide-react'
 import { useEffect, useState, type ComponentType } from 'react'
 import { DealDrawer } from './components/DealDrawer'
 import { currentQ } from './lib/dates'
 import { hygieneIssues, isOpen, nextBestActions, timeContext } from './lib/metrics'
 import { useStore } from './lib/store'
+import { AccountsView } from './views/AccountsView'
 import { ActionsView } from './views/ActionsView'
 import { ForecastView } from './views/ForecastView'
 import { HygieneView } from './views/HygieneView'
+import { PipeGenView } from './views/PipeGenView'
 import { PipelineView } from './views/PipelineView'
 import { QbrView } from './views/QbrView'
 import { RenewalsView } from './views/RenewalsView'
 import { RepsView } from './views/RepsView'
 import { SettingsView } from './views/SettingsView'
+import { WinLossView } from './views/WinLossView'
 
 export interface ViewProps {
   openDeal: (id: string) => void
@@ -20,15 +23,18 @@ export interface ViewProps {
 const VIEWS: { id: string; label: string; icon: ComponentType<{ size?: number }>; component: ComponentType<ViewProps> }[] = [
   { id: 'forecast', label: 'Forecast', icon: BarChart3, component: ForecastView },
   { id: 'pipeline', label: 'Pipeline', icon: Columns3, component: PipelineView },
+  { id: 'pipegen', label: 'Pipeline Generation', icon: TrendingUp, component: PipeGenView },
+  { id: 'accounts', label: 'Accounts', icon: Building2, component: AccountsView },
   { id: 'hygiene', label: 'Pipeline Hygiene', icon: AlertTriangle, component: HygieneView },
   { id: 'actions', label: 'Next Best Actions', icon: Lightbulb, component: ActionsView },
+  { id: 'winloss', label: 'Win / Loss', icon: Trophy, component: WinLossView },
   { id: 'reps', label: 'Rep Scorecard', icon: Users, component: RepsView },
   { id: 'renewals', label: 'Renewals', icon: Repeat, component: RenewalsView },
   { id: 'qbr', label: 'QBR Summary', icon: ClipboardList, component: QbrView },
   { id: 'settings', label: 'Settings & Method', icon: Settings2, component: SettingsView },
 ]
 
-const viewFromHash = () => VIEWS.find((v) => `#${v.id}` === window.location.hash)?.id ?? 'forecast'
+const viewFromHash = () => VIEWS.find((v) => v.id === window.location.hash.slice(1).split('/')[0])?.id ?? 'forecast'
 
 export default function App() {
   const { state, dispatch, deals } = useStore()

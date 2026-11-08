@@ -1,5 +1,5 @@
-import { addDays, currentQ, nextQ, prevQ, toISO, today, type Quarter } from './dates'
-import type { Deal, DealType, ForecastCategory, Product, Renewal, Rep, Segment, Source, Stage } from './types'
+import { addDays, currentQ, daysBetween, lastMonths, nextQ, parse, prevQ, toISO, today, type Quarter } from './dates'
+import { SOURCES, type Account, type Activity, type ActivityType, type Contact, type ContactRole, type Deal, type DealType, type ForecastCategory, type FunnelRow, type Product, type Renewal, type Rep, type Segment, type Source, type Stage } from './types'
 
 function mulberry32(seed: number) {
   return () => {
@@ -17,15 +17,24 @@ const between = (min: number, max: number) => min + rand() * (max - min)
 const int = (min: number, max: number) => Math.floor(between(min, max + 1))
 const pick = <T,>(arr: readonly T[]) => arr[Math.floor(rand() * arr.length)]
 const chance = (p: number) => rand() < p
-const weighted = <T,>(pairs: [T, number][]) => {
+const weightedWith = <T,>(rng: () => number, pairs: [T, number][]) => {
   const total = pairs.reduce((s, [, w]) => s + w, 0)
-  let r = rand() * total
+  let r = rng() * total
   for (const [v, w] of pairs) {
     r -= w
     if (r <= 0) return v
   }
   return pairs[pairs.length - 1][0]
 }
+const weighted = <T,>(pairs: [T, number][]) => weightedWith(() => rand(), pairs)
+
+// Second generator for accounts, contacts, activities and funnel data, so they never shift the deal data above.
+let aux = mulberry32(DEFAULT_SEED + 7)
+const aBetween = (min: number, max: number) => min + aux() * (max - min)
+const aInt = (min: number, max: number) => Math.floor(aBetween(min, max + 1))
+const aPick = <T,>(arr: readonly T[]) => arr[Math.floor(aux() * arr.length)]
+const aChance = (p: number) => aux() < p
+const aWeighted = <T,>(pairs: [T, number][]) => weightedWith(() => aux(), pairs)
 const round5k = (n: number) => Math.max(5000, Math.round(n / 5000) * 5000)
 
 export const REPS: Rep[] = [
@@ -36,7 +45,7 @@ export const REPS: Rep[] = [
   { id: 'r5', name: 'Beatriz Alves', segment: 'Commercial', territory: 'Brazil — Mid-Market', quota: 500_000, rampedPct: 1 },
 ]
 
-interface Account {
+interface AccountSeed {
   name: string
   industry: string
   country: string
@@ -45,7 +54,7 @@ interface Account {
 }
 
 // All company names are fictional.
-const ACCOUNTS: Account[] = [
+const ACCOUNTS: AccountSeed[] = [
   { name: 'Banco Aurora', industry: 'Banking', country: 'Brazil', segment: 'Enterprise', owner: 'r1' },
   { name: 'Itaparica Seguros', industry: 'Insurance', country: 'Brazil', segment: 'Enterprise', owner: 'r1' },
   { name: 'Cruzeiro Investimentos', industry: 'Asset Management', country: 'Brazil', segment: 'Enterprise', owner: 'r1' },
@@ -168,6 +177,7 @@ function makeDeal(stage: Stage, closeDate: Date, preferredOwner?: string, sloppy
     economicBuyer: stage === 'Negotiation' || stage === 'Closed Won' ? !chance(0.4 * sloppy) : stage === 'POC' ? chance(0.6 - 0.3 * sloppy) : chance(0.15),
     pushCount: isOpen ? weighted([[0, 7], [1, 2.5], [2, 1.5 * sloppy], [3, 0.5 * sloppy]]) : 0,
     lostReason: stage === 'Closed Lost' ? pick(LOST_REASONS) : undefined,
+    lostAtStage: stage === 'Closed Lost' ? aWeighted<Stage>([['Discovery', 2.5], ['Demo', 4], ['POC', 3], ['Negotiation', 1.5]]) : undefined,
   }
 }
 
@@ -259,6 +269,7 @@ export const snapshotOf = (deals: Deal[]): Snapshot[] =>
 
 export function buildSeed(seedNumber = DEFAULT_SEED) {
   rand = mulberry32(seedNumber)
+  aux = mulberry32(seedNumber + 7)
   seq = 0
   const deals = buildDeals()
 
@@ -281,5 +292,137 @@ export function buildSeed(seedNumber = DEFAULT_SEED) {
     recentWin.forecastCategory = 'Commit'
   }
 
-  return { reps: REPS, deals, renewals: buildRenewals(), baseline }
+  const renewals = buildRenewals()
+  const accounts = buildAccounts()
+  return {
+    reps: REPS,
+    deals,
+    renewals,
+    baseline,
+    accounts,
+    contacts: buildContacts(accounts, deals),
+    activities: buildActivities(deals),
+    funnel: buildFunnel(deals),
+  }
+}
+
+const CITY_HINT: Record<string, string> = {
+  'Varejo Paulista': 'São Paulo',
+  'Moda Carioca': 'Rio de Janeiro',
+  'Gaúcha Foods': 'Porto Alegre',
+  'Bazar Bahia Online': 'Salvador',
+  'Fibra Nordeste': 'Recife',
+  'Lojas Paraná Digital': 'Curitiba',
+  'Banco Litoral': 'Florianópolis',
+}
+const CITIES = ['São Paulo', 'São Paulo', 'São Paulo', 'Rio de Janeiro', 'Belo Horizonte', 'Campinas', 'Curitiba', 'Brasília', 'Porto Alegre']
+const FIRST = ['Ana', 'Bruno', 'Carla', 'Diego', 'Fernanda', 'Gustavo', 'Helena', 'Igor', 'Juliana', 'Leonardo', 'Larissa', 'Marcelo', 'Natália', 'Otávio', 'Paula', 'Renato', 'Sofia', 'Thiago', 'Vanessa', 'Vinícius', 'Patrícia', 'Eduardo', 'Aline', 'Rodrigo', 'Gabriela', 'Felipe', 'Tatiane', 'André']
+const LAST = ['Ribeiro', 'Oliveira', 'Santos', 'Pereira', 'Carvalho', 'Rocha', 'Almeida', 'Nascimento', 'Barbosa', 'Mendes', 'Cardoso', 'Teixeira', 'Moreira', 'Araújo', 'Gomes', 'Martins', 'Vieira', 'Monteiro', 'Freitas', 'Duarte']
+const PRIORITY_INDUSTRIES = ['Banking', 'Fintech', 'Insurance', 'Telco', 'Software']
+
+function buildAccounts(): Account[] {
+  return ACCOUNTS.map((a) => {
+    const engineers = a.segment === 'Enterprise' ? aInt(300, 3500) : aInt(30, 280)
+    const tier = engineers >= 1000 || (a.segment === 'Enterprise' && PRIORITY_INDUSTRIES.includes(a.industry)) ? 'A' : engineers >= 150 ? 'B' : 'C'
+    return {
+      name: a.name,
+      industry: a.industry,
+      country: a.country,
+      segment: a.segment,
+      ownerId: a.owner,
+      city: CITY_HINT[a.name] ?? aPick(CITIES),
+      engineers,
+      employees: Math.round((engineers * aBetween(4, 12)) / 10) * 10,
+      tier,
+    }
+  })
+}
+
+function buildContacts(accounts: Account[], deals: Deal[]): Contact[] {
+  const out: Contact[] = []
+  for (const a of accounts) {
+    const ds = deals.filter((d) => d.account === a.name && d.stage !== 'Closed Lost')
+    const last = ds.map((d) => d.lastActivityDate).sort().pop() ?? toISO(addDays(today, -60))
+    const ent = a.segment === 'Enterprise'
+    const hasChampion = ds.some((d) => d.champion)
+    const roles: [ContactRole, string, boolean][] = [
+      ['Economic Buyer', aPick(ent ? ['CTO', 'CIO', 'VP Engineering'] : ['CTO', 'Co-founder & CTO']), ds.some((d) => d.economicBuyer)],
+      [hasChampion ? 'Champion' : 'Technical Evaluator', aPick(['Head of Platform Engineering', 'Director of Engineering', 'Engineering Manager']), true],
+      ['Technical Evaluator', aPick(['Staff Engineer', 'Tech Lead', 'Principal Engineer']), aChance(0.8)],
+    ]
+    if (ent && aChance(0.7)) roles.push(['Security / IT', aPick(['CISO', 'Head of Information Security']), aChance(0.5)])
+    if (ds.some((d) => d.stage === 'Negotiation' || d.stage === 'Closed Won')) roles.push(['Procurement', 'Procurement Manager', true])
+    for (const [role, title, engaged] of roles) {
+      out.push({
+        id: `C-${out.length + 1}`,
+        account: a.name,
+        name: `${aPick(FIRST)} ${aPick(LAST)}`,
+        title,
+        role,
+        engaged,
+        lastContacted: engaged ? toISO(addDays(parse(last), -aInt(0, 12))) : aChance(0.5) ? toISO(addDays(today, -aInt(45, 120))) : null,
+      })
+    }
+  }
+  return out
+}
+
+const TIMELINE: [ActivityType, string][] = [
+  ['Email', 'Intro email — AI software engineering for the dev org'],
+  ['Call', 'Discovery call with engineering leadership'],
+  ['Meeting', 'Use-case workshop: legacy migration & test coverage'],
+  ['Demo', 'Tailored demo for dev leads'],
+  ['Email', 'Sent security & data-residency documentation (LGPD)'],
+  ['Meeting', 'POC kickoff — success criteria agreed'],
+  ['Call', 'POC mid-point check-in'],
+  ['Meeting', 'POC readout with CTO'],
+  ['Email', 'Proposal and pricing sent'],
+  ['Call', 'Procurement & legal review'],
+]
+const STAGE_REACH: Record<Stage, number> = { Discovery: 2, Demo: 4, POC: 7, Negotiation: 9, 'Closed Won': 9, 'Closed Lost': 0 }
+
+function buildActivities(deals: Deal[]): Activity[] {
+  const out: Activity[] = []
+  const add = (d: Deal, date: Date, type: ActivityType, subject: string) =>
+    out.push({ id: `A-${out.length + 1}`, account: d.account, dealId: d.id, date: toISO(date), type, subject, ownerId: d.ownerId })
+  for (const d of deals) {
+    const closed = d.stage === 'Closed Won' || d.stage === 'Closed Lost'
+    const steps = TIMELINE.slice(0, (d.stage === 'Closed Lost' ? STAGE_REACH[d.lostAtStage ?? 'Discovery'] : STAGE_REACH[d.stage]) + 1)
+    const n = aInt(Math.min(3, steps.length), steps.length)
+    const idx = [...new Set(Array.from({ length: n }, (_, i) => Math.round((i * (steps.length - 1)) / Math.max(1, n - 1))))]
+    const start = parse(d.createdDate)
+    const end = closed ? addDays(parse(d.closeDate), -aInt(1, 6)) : parse(d.lastActivityDate)
+    const span = Math.max(0, daysBetween(start, end))
+    idx.forEach((k, i) => add(d, addDays(start, Math.round((span * i) / Math.max(1, idx.length - 1))), ...steps[k]))
+    if (d.stage === 'Closed Won') add(d, parse(d.closeDate), 'Note', 'Order form signed — handoff to Customer Success')
+    if (d.stage === 'Closed Lost') add(d, parse(d.closeDate), 'Note', `Closed lost — ${d.lostReason}`)
+  }
+  return out
+}
+
+// Typical conversion rates by source: lead→MQL, MQL→SQL, SQL→opportunity.
+const FUNNEL_RATES: Record<Source, [number, number, number]> = {
+  Inbound: [0.35, 0.3, 0.55],
+  Outbound: [0.12, 0.35, 0.5],
+  Partner: [0.5, 0.45, 0.6],
+  Advisor: [0.7, 0.6, 0.7],
+  Event: [0.25, 0.2, 0.45],
+}
+
+function buildFunnel(deals: Deal[]): FunnelRow[] {
+  const rows: FunnelRow[] = []
+  const noise = () => aBetween(0.8, 1.25)
+  for (const month of lastMonths(7)) {
+    for (const source of SOURCES) {
+      for (const rep of REPS) {
+        const opps = deals.filter((d) => d.createdDate.startsWith(month) && d.source === source && d.ownerId === rep.id).length
+        const [lm, ms, so] = FUNNEL_RATES[source]
+        const sqls = Math.max(opps, Math.round((opps || (aChance(0.5) ? 0.6 : 0)) / so * noise()))
+        const mqls = Math.max(sqls, Math.round(Math.max(sqls, 0.5) / ms * noise()))
+        const leads = Math.max(mqls, Math.round(mqls / lm * noise()))
+        rows.push({ month, source, ownerId: rep.id, leads, mqls, sqls })
+      }
+    }
+  }
+  return rows
 }

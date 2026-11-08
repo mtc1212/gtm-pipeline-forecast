@@ -246,3 +246,13 @@ export function funnel(deals: Deal[], q: Quarter) {
 }
 
 export const timeContext = () => ({ ...quarterProgress(), today: toISO(today) })
+
+/** Furthest-stage-reached funnel for closed deals: won deals reached every stage, lost deals reached `lostAtStage`. */
+export function stageConversion(closed: Deal[]) {
+  const reach = (d: Deal) => (isWon(d) ? OPEN_STAGES.length : OPEN_STAGES.indexOf(d.lostAtStage ?? 'Discovery'))
+  return [...OPEN_STAGES, 'Closed Won' as Stage].map((stage, i) => ({
+    stage,
+    reached: closed.filter((d) => reach(d) >= i).length,
+    lostHere: closed.filter((d) => isLost(d) && reach(d) === i).length,
+  }))
+}

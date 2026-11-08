@@ -46,6 +46,8 @@ export interface Deal {
   economicBuyer: boolean
   pushCount: number
   lostReason?: string
+  /** Furthest open stage a Closed Lost deal reached. */
+  lostAtStage?: Stage
   notes?: string
 }
 
@@ -65,6 +67,54 @@ export interface Renewal {
   nps: number
   expansionSignal: boolean
 }
+
+export interface Account {
+  name: string
+  industry: string
+  country: string
+  segment: Segment
+  ownerId: string
+  city: string
+  employees: number
+  engineers: number
+  tier: 'A' | 'B' | 'C'
+}
+
+export type ContactRole = 'Economic Buyer' | 'Champion' | 'Technical Evaluator' | 'Security / IT' | 'Procurement'
+
+export interface Contact {
+  id: string
+  account: string
+  name: string
+  title: string
+  role: ContactRole
+  engaged: boolean
+  lastContacted: string | null
+}
+
+export type ActivityType = 'Email' | 'Call' | 'Meeting' | 'Demo' | 'Note' | 'Stage change'
+
+export interface Activity {
+  id: string
+  account: string
+  dealId?: string
+  date: string
+  type: ActivityType
+  subject: string
+  ownerId: string
+}
+
+/** Monthly top-of-funnel volume per rep and source. Opportunities are counted live from deals. */
+export interface FunnelRow {
+  month: string
+  source: Source
+  ownerId: string
+  leads: number
+  mqls: number
+  sqls: number
+}
+
+export const SOURCES: Source[] = ['Inbound', 'Outbound', 'Partner', 'Advisor', 'Event']
 
 export interface Settings {
   staleDays: number

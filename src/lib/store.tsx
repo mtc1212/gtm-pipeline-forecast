@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNo
 import { addDays, currentQ, daysBetween, inQuarter, today, toISO } from './dates'
 import { forecast, snapshotForecast } from './metrics'
 import { buildSeed, snapshotOf, type CallHistoryPoint, type Snapshot } from './seed'
-import { DEFAULT_SETTINGS, type Deal, type ForecastCategory, type Renewal, type Rep, type Settings, type Stage } from './types'
+import { DEFAULT_SETTINGS, OPEN_STAGES, type Account, type Activity, type ActivityType, type Contact, type Deal, type ForecastCategory, type FunnelRow, type Renewal, type Rep, type Settings, type Stage } from './types'
 
 export interface Filters {
   ownerId: string
@@ -15,6 +15,10 @@ interface State {
   reps: Rep[]
   deals: Deal[]
   renewals: Renewal[]
+  accounts: Account[]
+  contacts: Contact[]
+  activities: Activity[]
+  funnel: FunnelRow[]
   settings: Settings
   baseline: Snapshot[]
   baselineDate: string
@@ -27,13 +31,14 @@ type Action =
   | { type: 'updateDeal'; id: string; patch: Partial<Deal> }
   | { type: 'addDeal'; deal: Deal }
   | { type: 'logActivity'; id: string; nextStep?: string }
+  | { type: 'addActivity'; account: string; ownerId: string; activityType: ActivityType; subject: string; dealId?: string }
   | { type: 'lockCall' }
   | { type: 'setMyCall'; value: number | null }
   | { type: 'setFilters'; filters: Partial<Filters> }
   | { type: 'updateSettings'; settings: Partial<Settings> }
   | { type: 'reset' }
 
-const VERSION = 3
+const VERSION = 4
 const KEY = 'gtm-pipeline-forecast'
 
 const defaultCategory = (stage: Stage): ForecastCategory =>
@@ -67,6 +72,10 @@ function freshState(): State {
     reps: seed.reps,
     deals: seed.deals,
     renewals: seed.renewals,
+    accounts: seed.accounts,
+    contacts: seed.contacts,
+    activities: seed.activities,
+    funnel: seed.funnel,
     settings: DEFAULT_SETTINGS,
     baseline: seed.baseline,
     baselineDate: toISO(addDays(today, -7)),
@@ -90,12 +99,23 @@ function load(): State {
   return freshState()
 }
 
+const activity = (state: State, a: Omit<Activity, 'id' | 'date'>): Activity => ({
+  id: `A-${Date.now().toString(36)}-${state.activities.length}`,
+  date: toISO(today),
+  ...a,
+})
+
 function reducer(state: State, action: Action): State {
   const now = toISO(today)
   switch (action.type) {
-    case 'updateDeal':
+    case 'updateDeal': {
+      const old = state.deals.find((d) => d.id === action.id)
+      const stageChange = old && action.patch.stage && action.patch.stage !== old.stage
+        ? activity(state, { account: old.account, dealId: old.id, ownerId: old.ownerId, type: 'Stage change', subject: `Stage changed: ${old.stage} → ${action.patch.stage}` })
+        : null
       return {
         ...state,
+        activities: stageChange ? [stageChange, ...state.activities] : state.activities,
         deals: state.deals.map((d) => {
           if (d.id !== action.id) return d
           const next: Deal = { ...d, ...action.patch }
@@ -109,22 +129,34 @@ function reducer(state: State, action: Action): State {
               next.nextStepDate = null
             }
             if (next.stage === 'Closed Lost' && !next.lostReason) next.lostReason = 'No decision / status quo'
+            if (next.stage === 'Closed Lost' && OPEN_STAGES.includes(d.stage)) next.lostAtStage = d.stage
           }
           if (action.patch.closeDate && action.patch.closeDate > d.closeDate && inQuarter(d.closeDate, currentQ) && !inQuarter(action.patch.closeDate, currentQ))
             next.pushCount = d.pushCount + 1
           return next
         }),
       }
+    }
     case 'addDeal':
       return { ...state, deals: [action.deal, ...state.deals] }
-    case 'logActivity':
+    case 'logActivity': {
+      const d = state.deals.find((x) => x.id === action.id)
+      const logged = d && activity(state, { account: d.account, dealId: d.id, ownerId: d.ownerId, type: 'Note', subject: action.nextStep ? `Completed next best action: ${action.nextStep}` : 'Activity logged on opportunity' })
       return {
         ...state,
+        activities: logged ? [logged, ...state.activities] : state.activities,
         deals: state.deals.map((d) =>
           d.id === action.id
             ? { ...d, lastActivityDate: now, ...(action.nextStep ? { nextStep: action.nextStep, nextStepDate: toISO(addDays(today, 7)) } : {}) }
             : d,
         ),
+      }
+    }
+    case 'addActivity':
+      return {
+        ...state,
+        activities: [activity(state, { account: action.account, dealId: action.dealId, ownerId: action.ownerId, type: action.activityType, subject: action.subject }), ...state.activities],
+        deals: action.dealId ? state.deals.map((d) => (d.id === action.dealId ? { ...d, lastActivityDate: now } : d)) : state.deals,
       }
     case 'lockCall': {
       const f = forecast(state.deals, state.settings)
@@ -154,6 +186,10 @@ interface Ctx {
   deals: Deal[]
   reps: Rep[]
   renewals: Renewal[]
+  accounts: Account[]
+  contacts: Contact[]
+  activities: Activity[]
+  funnel: FunnelRow[]
   baseline: Snapshot[]
   target: number
   repName: (id: string) => string
@@ -175,6 +211,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const ids = new Set(reps.map((r) => r.id))
     const deals = state.deals.filter((d) => ids.has(d.ownerId))
     const renewals = state.renewals.filter((r) => ids.has(r.ownerId))
+    const accounts = state.accounts.filter((a) => ids.has(a.ownerId))
+    const accountNames = new Set(accounts.map((a) => a.name))
+    const contacts = state.contacts.filter((c) => accountNames.has(c.account))
+    const activities = state.activities.filter((a) => ids.has(a.ownerId))
+    const funnel = state.funnel.filter((f) => ids.has(f.ownerId))
     const dealOwner = new Map(state.deals.map((d) => [d.id, d.ownerId]))
     const baseline = state.baseline.filter((s) => ids.has(dealOwner.get(s.id) ?? ''))
     const names = new Map(state.reps.map((r) => [r.id, r.name]))
@@ -184,6 +225,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       deals,
       reps,
       renewals,
+      accounts,
+      contacts,
+      activities,
+      funnel,
       baseline,
       target: reps.reduce((s, r) => s + r.quota, 0),
       repName: (id) => names.get(id) ?? id,

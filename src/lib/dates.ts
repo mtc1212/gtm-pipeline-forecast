@@ -55,3 +55,9 @@ export const quarterProgress = () => {
 
 export const fmtDate = (iso: string | null | undefined) =>
   iso ? parse(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'
+
+export const monthKey = (d: Date) => toISO(d).slice(0, 7)
+export const lastMonths = (n: number) =>
+  Array.from({ length: n }, (_, i) => monthKey(new Date(today.getFullYear(), today.getMonth() - (n - 1 - i), 1)))
+export const monthsOf = (q: Quarter) => [0, 1, 2].map((i) => monthKey(new Date(q.start.getFullYear(), q.start.getMonth() + i, 1)))
+export const fmtMonth = (key: string) => parse(`${key}-01`).toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
