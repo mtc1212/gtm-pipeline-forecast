@@ -57,7 +57,7 @@ export default function App() {
           </div>
           <div>
             <div className="text-sm font-semibold leading-tight text-slate-900">GTM Command Center</div>
-            <div className="text-xs text-slate-500">LATAM · {currentQ.label}</div>
+            <div className="text-xs text-slate-500">Brazil · {currentQ.label}</div>
           </div>
         </div>
         <ul className="flex-1 space-y-0.5 px-3">
@@ -75,7 +75,7 @@ export default function App() {
           ))}
         </ul>
         <div className="border-t border-slate-100 p-4 text-xs text-slate-500">
-          Simulated data for a fictional LATAM sales team. Edits are saved in your browser.
+          Simulated data for a fictional Brazil sales team. Edits are saved in your browser.
           <button className="mt-2 flex items-center gap-1 text-indigo-600 hover:underline" onClick={() => confirm('Reset all data to the original simulation?') && dispatch({ type: 'reset' })}>
             <RefreshCcw size={12} /> Reset data
           </button>

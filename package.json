@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:single": "tsc -b && vite build --config vite.single.config.ts && mv dist-single/index.html dist-single/GTM-Command-Center.html"
   },
   "dependencies": {
     "lucide-react": "^1.70.0",
@@ -24,6 +25,7 @@
     "oxlint": "^1.90.0",
     "tailwindcss": "^4.3.5",
     "typescript": "~7.0.2",
-    "vite": "^8.3.6"
+    "vite": "^8.3.6",
+    "vite-plugin-singlefile": "^2.3.4"
   }
 }

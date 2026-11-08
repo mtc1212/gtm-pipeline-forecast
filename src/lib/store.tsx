@@ -33,7 +33,7 @@ type Action =
   | { type: 'updateSettings'; settings: Partial<Settings> }
   | { type: 'reset' }
 
-const VERSION = 2
+const VERSION = 3
 const KEY = 'gtm-pipeline-forecast'
 
 const defaultCategory = (stage: Stage): ForecastCategory =>

@@ -59,7 +59,7 @@ export function QbrView() {
   return (
     <div className="mx-auto max-w-5xl space-y-5">
       <PageHeader
-        title={`QBR Snapshot — LATAM ${currentQ.label}`}
+        title={`QBR Snapshot — Brazil ${currentQ.label}`}
         description="Auto-generated from live CRM data. Every sentence below recalculates when deals change. Use Print to export a one-pager."
         action={<button className="btn print:hidden" onClick={() => window.print()}><Printer size={14} /> Print / PDF</button>}
       />

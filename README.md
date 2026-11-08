@@ -1,6 +1,6 @@
-# GTM Pipeline & Forecast — LATAM
+# GTM Pipeline & Forecast — Brazil
 
-An interactive CRM and forecasting simulator for a fictional Brazil/LATAM sales team selling Devin and Windsurf. It walks through a weekly Strategy & GTM Operations workflow: pipeline review, forecast call, data-quality checks, next-best actions, rep coaching, renewals and QBR prep.
+An interactive CRM and forecasting simulator for a fictional Brazil sales team selling Devin and Windsurf. It walks through a weekly Strategy & GTM Operations workflow: pipeline review, forecast call, data-quality checks, next-best actions, rep coaching, renewals and QBR prep.
 
 All companies, people and numbers are fictional. Nothing connects to a real CRM. Edits are saved in your browser (`localStorage`). **Reset data** in the sidebar restores the seed.
 
