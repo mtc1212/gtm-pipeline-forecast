@@ -31,6 +31,7 @@ All companies, people and numbers are fictional. Nothing connects to a real CRM.
 npm install
 npm run dev     # http://localhost:5173
 npm run build   # static site in dist/
+npm run build:single  # one offline file: dist-single/GTM-Command-Center.html (double-click to open)
 ```
 
 Built with Vite, React, TypeScript, Tailwind CSS and Recharts. Seed data is deterministic and is generated relative to today's date, so the current quarter always contains live deals.
